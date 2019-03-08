@@ -1,21 +1,25 @@
 <?php
-if(empty($_GET['sub_domain'])){
-	showmsg('域名解析名不能为空','sub_domain');
+if(is_array($_GET)&&count($_GET)<1){
+  Header("Location: http://www.myxzy.com/post-464.html"); 
+  exit; 
+}
+$format = empty($_GET['format'])?'xml':strtolower(addslashes($_GET['format']));
+if(empty($_GET['token'])){
+	$message = 'Token cannot be empty';
+  output("0",$message);
 }elseif(empty($_GET['domain'])){
-	showmsg('域名不能为空','domain');
-}elseif(empty($_GET['id'])){
-	showmsg('DNSPOD API Token ID不能为空','id');	
-}elseif(empty($_GET['token'])){
-	showmsg('DNSPOD API Token值不能为空','token');			
-}elseif(empty($_GET['ip'])){
-	showmsg('没有新的IP地址','ip');	
+	$message = 'Domain cannot be empty';
+  output("0",$message);
+}elseif(empty($_GET['record'])){
+	$message = 'Record cannot be empty';
+  output("0",$message);
 }else{
-	$key = addslashes($_GET['id']).','.addslashes($_GET['token']);
+	$token = addslashes($_GET['token']);
+	$ip = empty($_GET['ip']) ? $_SERVER['REMOTE_ADDR'] :addslashes($_GET['ip']);	
 	$domain = addslashes($_GET['domain']);
-	$sub_domain = addslashes($_GET['sub_domain']);
+	$sub_domain = addslashes($_GET['record']);
 	$domain_all = $sub_domain.'.'.$domain;
-	$ip = addslashes($_GET['ip']);
-	$type = empty($_GET['type'])?'A':addslashes($_GET['type']);
+  $type = empty($_GET['type'])||strtoupper(addslashes($_GET['type']))!='AAAA'?'A':'AAAA';
 	$line = empty($_GET['line'])?'default':addslashes($_GET['line']);
 }
 
@@ -24,16 +28,17 @@ $line_array = array('default'=>'默认','ctc'=>'电信','cucc'=>'联通','cernet
 if(array_key_exists($line, $line_array)){
 	$line = $line_array[$line];
 }else{
-	showmsg('请输入正确的line参数，line为空为默认线路','line');
+	$message = 'Line error';
+  output("0",$message);  
 }
 
 //获取域名id
-//fix：通过域名报错问题
 $list_url = 'https://dnsapi.cn/Domain.List';
-$list_token = array ("login_token" => $key,"format" => "json");
+$list_token = array ("login_token" => $token,"format" => "json");
 $list_data = json_decode(ssl_post($list_token,$list_url), true);
 if($list_data['status']['code']!=1){
-	showmsg('请输入正确的DNSPOD API token的id和值','id & token');
+  $message = 'Token error';
+  output("0",$message);  
 }
 foreach($list_data['domains'] as $value){
 	if($value['name'] == $domain){
@@ -42,12 +47,13 @@ foreach($list_data['domains'] as $value){
 	}
 }
 if(empty($domain_id)){
-	showmsg('该账号下未找到域名'.$domain,'domain');
+  $message = 'Domain error';
+  output("0",$message);    
 }
 
 //获取域名下记录列表
 $record_url =  'https://dnsapi.cn/Record.List';
-$record_token = array ("login_token" => $key,"format" => "json","domain_id" =>$domain_id);
+$record_token = array ("login_token" => $token,"format" => "json","domain_id" =>$domain_id);
 $record_data = json_decode(ssl_post($record_token,$record_url), true);
 foreach($record_data['records'] as $value){
 	if($value['name'] == $sub_domain && $value['type']==$type && $value['line'] == $line){
@@ -56,29 +62,42 @@ foreach($record_data['records'] as $value){
 		break;
 	}
 }
+
+//解析记录不存在即创建解析记录
 if(empty($record_id)){
-	showmsg('未找到解析名为'.$sub_domain.'记录，请检查是否为记录类型和线路','type & line');
-}
-if($record_value == $ip){
-	showmsg('相同的IP地址，由DNSPOD API得到，无法跳过','IP');
+  $record_create_url =  'https://dnsapi.cn/Record.Create';
+  $record_create_token =  array ("login_token" => $token,"format" => "json","domain_id" =>$domain_id,"sub_domain" =>$sub_domain,"record_type" => $type,"record_line" => $line,"value" => $ip,"ttl" => '120');
+  $record_create_data = json_decode(ssl_post($record_create_token,$record_create_url), true);
+  if($record_create_data['status']['code']==1){
+    $message = 'Record created success, ip updated';
+    output("1",$message);
+  }else{
+    $message = 'Record created error, Please add manually';
+    output($record_create_data['status']['code'],$message);
+  }
 }
 
-//修改记录值
-$dns_url = 'https://dnsapi.cn/Record.Modify';
-$dns_token = array ("login_token" => $key,"format" => "json","domain" => $domain,"record_id" => $record_id,"sub_domain" => $sub_domain,"record_line" => $line,"value" => $ip,"record_type" => $type);
+//ip相同跳过更新，防止账号被锁
+if($record_value == $ip){
+  $message = 'IP same, not updated';
+  output("0",$message);
+}
+
+//ipv4更新记录值（ttl自动变为10），ipv6修改记录值
+if($type == 'A'){
+  $dns_url = 'https://dnsapi.cn/Record.Ddns';
+  $dns_token = array ("login_token" => $token,"format" => "json","domain_id" => $domain_id,"record_id" => $record_id,"sub_domain" => $sub_domain,"record_line" => $line,"value" => $ip);
+}else{
+  $dns_url = 'https://dnsapi.cn/Record.Modify';
+  $dns_token = array ("login_token" => $token,"format" => "json","domain_id" => $domain_id,"record_id" => $record_id,"sub_domain" => $sub_domain,"record_line" => $line,"value" => $ip,"record_type" => $type);  
+}
 $dns_data = json_decode(ssl_post($dns_token,$dns_url), true);
 if($dns_data['status']['code']==1){
-	showmsg('DNS记录更新成功，当前'.$domain_all.'解析IP为'.$ip,'','green');
+  $message = 'Record updated success. domain:'.$domain_all.'['.$ip.']';
+  output("1",$message);  
 }else{
-	showmsg('DNS记录更新失败','未知,id:'.$dns_data['status']['code']);
-}
-
-function showmsg($text,$err='',$status='error'){
-	echo '<html><head><title>提示信息 - DNSPOD API动态域名解析V1.3 - By StarYu</title><meta http-equiv="Content-Type" content="text/html; charset=utf-8" /> </head><body><h1 style="text-align:center;">DNSPOD API动态域名解析V1.3 - By StarYu<h1><h2 style="text-align:center;color:';
-	echo $status == 'error'?'red">Error ':'green">Success ';
-	echo $err.'：'.$text;
-	echo '</h3><p style="text-align:center;">示例：http://u.myxzy.com/dnspod.php?id=12345&token=abc1234567890abc1234567890&ip=1.1.1.1&domain=myxzy.com&sub_domain=www&line=cmcc</p><p style="text-align:center;">技术支持帮助咨询请去<a href="http://www.myxzy.com/post-464.html">http://www.myxzy.com/post-464.html</a></p></body></html>';
-	exit();
+  $message = 'Record updated error.';
+  output($dns_data['status']['code'],$message);  
 }
 
 function ssl_post($data,$url){
@@ -97,4 +116,36 @@ function ssl_post($data,$url){
     }
     curl_close($curl); 
     return $tmpInfo; 
+}
+
+//输出函数
+function output($status,$message){
+  global $format;
+  $dns['code'] = $status;
+  $dns['message'] = $message;
+  $dns['time'] = date("Y-m-d h:i:s");
+  $dns['info'] = 'dnspod-api-php V1.4 By Star.Yu';  
+  if($format == 'json'){
+    header('Content-Type:application/json; charset=utf-8');
+    exit(json_encode($dns,true|JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));    
+  }else{
+    header('Content-Type:application/xml; charset=utf-8');
+    exit(arr2xml($dns));    
+  }
+}
+
+//数组转xml
+function arr2xml($data, $root = true){
+    $str="";
+    if($root)$str .= "<xml>";
+    foreach($data as $key => $val){
+        if(is_array($val)){
+            $child = arr2xml($val, false);
+            $str .= "<$key>$child</$key>";
+        }else{
+            $str.= "<$key>$val</$key>";
+        }
+    }
+    if($root)$str .= "</xml>";
+    return $str;
 }
