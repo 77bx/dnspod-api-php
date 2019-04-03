@@ -1,26 +1,36 @@
 <?php
-if(is_array($_GET)&&count($_GET)<1){
-  Header("Location: http://www.myxzy.com/post-464.html"); 
+/***
+* Dnspod-api-php V1.6
+* By Star.Yu
+***/
+if($_SERVER['REQUEST_METHOD']=="POST"){
+  $request = $_POST;
+}
+if($_SERVER['REQUEST_METHOD']=="GET"){
+  $request = $_GET;
+}
+if(is_array($request)&&count($request)<1){
+  Header("Location: http://u.myxzy.com/dnspod/demo.php"); 
   exit; 
 }
-$format = empty($_GET['format'])?'xml':strtolower(addslashes($_GET['format']));
-if(empty($_GET['token'])){
-	$message = 'Token cannot be empty';
+$format = empty($request['format'])?'xml':strtolower(addslashes($request['format']));
+if(empty($request['token'])){
+  $message = 'Token cannot be empty';
   output("0",$message);
-}elseif(empty($_GET['domain'])){
-	$message = 'Domain cannot be empty';
+}elseif(empty($request['domain'])){
+  $message = 'Domain cannot be empty';
   output("0",$message);
-}elseif(empty($_GET['record'])){
-	$message = 'Record cannot be empty';
+}elseif(empty($request['record'])){
+  $message = 'Record cannot be empty';
   output("0",$message);
 }else{
-	$token = addslashes($_GET['token']);
-	$ip = empty($_GET['ip']) ? $_SERVER['REMOTE_ADDR'] :addslashes($_GET['ip']);	
-	$domain = addslashes($_GET['domain']);
-	$sub_domain = addslashes($_GET['record']);
-	$domain_all = $sub_domain.'.'.$domain;
-  $type = empty($_GET['type'])||strtoupper(addslashes($_GET['type']))!='AAAA'?'A':'AAAA';
-	$line = empty($_GET['line'])?'default':addslashes($_GET['line']);
+  $token = addslashes($request['token']);
+  $ip = empty($request['ip']) ? $_SERVER['REMOTE_ADDR'] :addslashes($request['ip']);	
+  $domain = addslashes($request['domain']);
+  $sub_domain = addslashes($request['record']);
+  $domain_all = $sub_domain.'.'.$domain;
+  $type = empty($request['type'])||strtoupper(addslashes($request['type']))!='AAAA'?'A':'AAAA';
+  $line = empty($request['line'])?'default':addslashes($request['line']);
 }
 
 //line参数设置
@@ -124,7 +134,7 @@ function output($status,$message){
   $dns['code'] = $status;
   $dns['message'] = $message;
   $dns['time'] = date("Y-m-d h:i:s");
-  $dns['info'] = 'dnspod-api-php V1.4 By Star.Yu';  
+  $dns['info'] = 'dnspod-api-php V1.6 By Star.Yu';  
   if($format == 'json'){
     header('Content-Type:application/json; charset=utf-8');
     exit(json_encode($dns,true|JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));    
