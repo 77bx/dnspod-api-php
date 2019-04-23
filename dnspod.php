@@ -1,6 +1,6 @@
 <?php
 /***
-* Dnspod-api-php V1.6
+* Dnspod-api-php V1.7
 * By Star.Yu
 ***/
 if($_SERVER['REQUEST_METHOD']=="POST"){
@@ -25,12 +25,26 @@ if(empty($request['token'])){
   output("0",$message);
 }else{
   $token = addslashes($request['token']);
-  $ip = empty($request['ip']) ? $_SERVER['REMOTE_ADDR'] :addslashes($request['ip']);	
+  $ip = empty($request['ip']) ? $_SERVER['REMOTE_ADDR'] : addslashes($request['ip']);
   $domain = addslashes($request['domain']);
   $sub_domain = addslashes($request['record']);
-  $domain_all = $sub_domain.'.'.$domain;
-  $type = empty($request['type'])||strtoupper(addslashes($request['type']))!='AAAA'?'A':'AAAA';
-  $line = empty($request['line'])?'default':addslashes($request['line']);
+  $domain_all = $sub_domain.'.'.$domain; 
+  $type = empty($request['type']) ? 'A' : strtoupper(addslashes($request['type']));
+  $line = empty($request['line']) ? 'default' : addslashes($request['line']);
+}
+
+//判断type和ip值
+if($type != 'A' && $type != 'AAAA' && $type != 'CNAME' && $type != 'MX'){
+  $message = 'Type error';
+  output("0",$message);  
+}
+if($type === 'A' && !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)){
+  $message = 'IPv4 error';
+  output("0",$message); 
+}
+if($type === 'AAAA' && !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)){
+  $message = 'IPv6 error';
+  output("0",$message); 
 }
 
 //line参数设置
@@ -48,7 +62,7 @@ $list_token = array ("login_token" => $token,"format" => "json");
 $list_data = json_decode(ssl_post($list_token,$list_url), true);
 if($list_data['status']['code']!=1){
   $message = 'Token error';
-  output("0",$message);  
+  output($list_data['status']['code'],$message);  
 }
 foreach($list_data['domains'] as $value){
 	if($value['name'] == $domain){
@@ -63,7 +77,7 @@ if(empty($domain_id)){
 
 //获取域名下记录列表
 $record_url =  'https://dnsapi.cn/Record.List';
-$record_token = array ("login_token" => $token,"format" => "json","domain_id" =>$domain_id);
+$record_token = array ("login_token" => $token,"format" => "json","domain_id" =>$domain_id,"offset"=>0,"length"=>3000);
 $record_data = json_decode(ssl_post($record_token,$record_url), true);
 foreach($record_data['records'] as $value){
 	if($value['name'] == $sub_domain && $value['type']==$type && $value['line'] == $line){
@@ -93,7 +107,7 @@ if($record_value == $ip){
   output("0",$message);
 }
 
-//ipv4更新记录值（ttl自动变为10），ipv6修改记录值
+//A记录更新记录值（ttl自动变为10），AAAA/CNAME/MX修改记录值
 if($type == 'A'){
   $dns_url = 'https://dnsapi.cn/Record.Ddns';
   $dns_token = array ("login_token" => $token,"format" => "json","domain_id" => $domain_id,"record_id" => $record_id,"sub_domain" => $sub_domain,"record_line" => $line,"value" => $ip);
@@ -134,7 +148,7 @@ function output($status,$message){
   $dns['code'] = $status;
   $dns['message'] = $message;
   $dns['time'] = date("Y-m-d h:i:s");
-  $dns['info'] = 'dnspod-api-php V1.6 By Star.Yu';  
+  $dns['info'] = 'dnspod-api-php V1.7 By Star.Yu';  
   if($format == 'json'){
     header('Content-Type:application/json; charset=utf-8');
     exit(json_encode($dns,true|JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));    
