@@ -1,6 +1,6 @@
 <?php
 /***
-* Dnspod-api-php V1.7
+* Dnspod-api-php V1.8
 * By Star.Yu
 ***/
 if($_SERVER['REQUEST_METHOD']=="POST"){
@@ -10,7 +10,7 @@ if($_SERVER['REQUEST_METHOD']=="GET"){
   $request = $_GET;
 }
 if(is_array($request)&&count($request)<1){
-  Header("Location: http://u.myxzy.com/dnspod/demo.php"); 
+  Header("Location: https://api.myxzy.com/dnspod/demo.php"); 
   exit; 
 }
 $format = empty($request['format'])?'xml':strtolower(addslashes($request['format']));
@@ -148,7 +148,7 @@ function output($status,$message){
   $dns['code'] = $status;
   $dns['message'] = $message;
   $dns['time'] = date("Y-m-d h:i:s");
-  $dns['info'] = 'dnspod-api-php V1.7 By Star.Yu';  
+  $dns['info'] = 'dnspod-api-php V1.8 By Star.Yu';  
   if($format == 'json'){
     header('Content-Type:application/json; charset=utf-8');
     exit(json_encode($dns,true|JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));    
