@@ -1,6 +1,6 @@
 <?php
 /***
-* Dnspod-api-php V1.9
+* Dnspod-api-php V2.0
 * By Star.Yu
 * 差不多是老接口的最后版本了。
 ***/
@@ -87,7 +87,7 @@ if(!empty($record_info)){
     output(1,'IP same, not updated');
   }else{
     if($record_info['type'] == 'A'){
-      $data = array ("login_token" => $token,"format" => "json","domain" => $domain,"record_id" => $record_info['id'],"record_line" => $record_info['line'],"value" => $ip);
+      $data = array ("login_token" => $token,"format" => "json","domain" => $domain,"sub_domain" => $record_info['name'],"record_id" => $record_info['id'],"record_line" => $record_info['line'],"value" => $ip);
       $get_ddns_info = ssl_post($data,'https://dnsapi.cn/Record.Ddns');
     }else{
       $data = array ("login_token" => $token,"format" => "json","domain" => $domain,"record_id" => $record_info['id'],"record_line" => $record_info['line'],"value" => $ip,"record_type" => $record_info['type']);
@@ -126,7 +126,7 @@ function output($status,$message){
   $dns['code'] = $status;
   $dns['message'] = $message;
   $dns['time'] = date("Y-m-d h:i:s");
-  $dns['info'] = 'dnspod-api-php V1.9 By Star.Yu';
+  $dns['info'] = 'dnspod-api-php V2.0 By Star.Yu';
   if($format == 'json'){
     header('Content-Type:application/json; charset=utf-8');
     exit(json_encode($dns,true|JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
